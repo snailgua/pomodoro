@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>專注計時器 — Pomodoro</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f0e8;
+    --bg-card: #faf7f2;
+    --brown: #8b7355;
+    --brown-light: #a89279;
+    --brown-dark: #6b5740;
+    --green: #7a9a7e;
+    --green-muted: #95b298;
+    --text: #4a4035;
+    --text-light: #8a7e72;
+    --border: #e0d8cc;
+    --shadow: rgba(107, 87, 64, 0.08);
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Microsoft JhengHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Header with title + lang toggle */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2.5rem;
+  }
+
+  h1 {
+    font-weight: 300;
+    font-size: 1.1rem;
+    letter-spacing: 0.3em;
+    color: var(--brown);
+  }
+
+  .lang-btn {
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-light);
+    padding: 0.3rem 0.7rem;
+    border-radius: 1rem;
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    font-family: inherit;
+    font-weight: 400;
+  }
+
+  .lang-btn:hover {
+    color: var(--brown);
+    border-color: var(--brown-light);
+  }
+
+  /* Mode tabs */
+  .mode-tabs {
+    display: flex;
+    gap: 0.4rem;
+    margin-bottom: 2rem;
+    background: var(--bg-card);
+    padding: 0.3rem;
+    border-radius: 2rem;
+    box-shadow: 0 1px 8px var(--shadow);
+  }
+
+  .mode-tab {
+    border: none;
+    background: transparent;
+    color: var(--text-light);
+    padding: 0.5rem 1.2rem;
+    border-radius: 1.5rem;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    font-family: inherit;
+    font-weight: 400;
+    white-space: nowrap;
+  }
+
+  .mode-tab:hover {
+    color: var(--text);
+  }
+
+  .mode-tab.active {
+    background: var(--brown);
+    color: var(--bg-card);
+  }
+
+  .timer-container {
+    position: relative;
+    width: 280px;
+    height: 280px;
+    margin-bottom: 2rem;
+  }
+
+  .timer-svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+
+  .timer-track {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 3;
+  }
+
+  .timer-progress {
+    fill: none;
+    stroke: var(--brown);
+    stroke-width: 3;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.5s ease;
+  }
+
+  .timer-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .time-display {
+    font-size: 3.2rem;
+    font-weight: 200;
+    letter-spacing: 0.08em;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  .timer-label {
+    font-size: 0.75rem;
+    color: var(--text-light);
+    letter-spacing: 0.15em;
+    margin-top: 0.5rem;
+    font-weight: 300;
+  }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .btn {
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--brown);
+    padding: 0.6rem 1.8rem;
+    border-radius: 2rem;
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    font-family: inherit;
+    font-weight: 400;
+  }
+
+  .btn:hover {
+    background: var(--brown);
+    color: var(--bg-card);
+    border-color: var(--brown);
+  }
+
+  .btn.active {
+    background: var(--brown);
+    color: var(--bg-card);
+    border-color: var(--brown);
+  }
+
+  .btn-reset {
+    border-color: transparent;
+    background: transparent;
+    color: var(--text-light);
+  }
+
+  .btn-reset:hover {
+    background: transparent;
+    color: var(--brown);
+    border-color: var(--border);
+  }
+
+  /* Duration settings */
+  .duration-section {
+    text-align: center;
+    margin-bottom: 2.5rem;
+    width: 100%;
+    max-width: 380px;
+  }
+
+  .duration-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8rem;
+    margin-bottom: 0.8rem;
+  }
+
+  .duration-row:last-child {
+    margin-bottom: 0;
+  }
+
+  .duration-label {
+    font-size: 0.7rem;
+    color: var(--text-light);
+    letter-spacing: 0.1em;
+    font-weight: 300;
+    min-width: 4.5rem;
+    text-align: right;
+  }
+
+  .duration-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .duration-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--brown);
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    font-family: inherit;
+    line-height: 1;
+  }
+
+  .duration-btn:hover {
+    background: var(--brown);
+    color: var(--bg-card);
+    border-color: var(--brown);
+  }
+
+  .duration-value {
+    font-size: 0.9rem;
+    font-weight: 300;
+    color: var(--text);
+    min-width: 4.5rem;
+    text-align: center;
+    letter-spacing: 0.05em;
+  }
+
+  .duration-value span {
+    font-size: 0.65rem;
+    color: var(--text-light);
+    margin-left: 0.15rem;
+  }
+
+  /* Sound panel */
+  .sound-panel {
+    width: 100%;
+    max-width: 360px;
+    background: var(--bg-card);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 2px 20px var(--shadow);
+  }
+
+  .sound-panel-title {
+    font-size: 0.7rem;
+    color: var(--text-light);
+    letter-spacing: 0.15em;
+    margin-bottom: 1.2rem;
+    font-weight: 300;
+    text-align: center;
+  }
+
+  .sound-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .sound-item {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.6rem 0.8rem;
+    border-radius: 0.6rem;
+    transition: background 0.2s ease;
+  }
+
+  .sound-item:hover {
+    background: rgba(139, 115, 85, 0.04);
+  }
+
+  .sound-toggle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: transparent;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s ease;
+    flex-shrink: 0;
+  }
+
+  .sound-toggle.active {
+    background: var(--green);
+    border-color: var(--green);
+    box-shadow: 0 2px 8px rgba(122, 154, 126, 0.3);
+  }
+
+  .sound-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .sound-name {
+    font-size: 0.8rem;
+    color: var(--text);
+    font-weight: 400;
+    letter-spacing: 0.05em;
+  }
+
+  .sound-name-en {
+    font-size: 0.65rem;
+    color: var(--text-light);
+    font-weight: 300;
+    letter-spacing: 0.05em;
+  }
+
+  .sound-volume {
+    width: 80px;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 2px;
+    background: var(--border);
+    border-radius: 1px;
+    outline: none;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+  }
+
+  .sound-volume.active {
+    opacity: 1;
+  }
+
+  .sound-volume::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--brown);
+    cursor: pointer;
+  }
+
+  .sound-volume::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--brown);
+    cursor: pointer;
+    border: none;
+  }
+
+  /* Footer */
+  .footer {
+    margin-top: 2.5rem;
+    font-size: 0.65rem;
+    color: var(--text-light);
+    letter-spacing: 0.1em;
+    font-weight: 300;
+    opacity: 0.6;
+  }
+
+  /* Responsive */
+  @media (max-width: 400px) {
+    .timer-container { width: 240px; height: 240px; }
+    .time-display { font-size: 2.6rem; }
+    .sound-panel { padding: 1.2rem; }
+    .mode-tab { padding: 0.4rem 0.8rem; font-size: 0.68rem; }
+    .duration-label { min-width: 3.5rem; font-size: 0.65rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1 id="appTitle">專注計時器</h1>
+  <button class="lang-btn" id="langBtn" onclick="toggleLang()">EN</button>
+</div>
+
+<!-- Mode tabs -->
+<div class="mode-tabs">
+  <button class="mode-tab active" data-mode="work" id="tabWork">工作</button>
+  <button class="mode-tab" data-mode="shortBreak" id="tabShort">小休息</button>
+  <button class="mode-tab" data-mode="longBreak" id="tabLong">大休息</button>
+</div>
+
+<div class="timer-container">
+  <svg class="timer-svg" viewBox="0 0 280 280">
+    <circle class="timer-track" cx="140" cy="140" r="126" />
+    <circle class="timer-progress" cx="140" cy="140" r="126"
+      stroke-dasharray="792" stroke-dashoffset="0" />
+  </svg>
+  <div class="timer-text">
+    <div class="time-display" id="timeDisplay">25:00</div>
+    <div class="timer-label" id="timerLabel">準備就緒</div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn" id="btnStart">開始</button>
+  <button class="btn btn-reset" id="btnReset">重設</button>
+</div>
+
+<div class="duration-section">
+  <div class="duration-row">
+    <div class="duration-label" id="labelWork">工作時間</div>
+    <div class="duration-controls">
+      <button class="duration-btn" onclick="adjustDuration('work', -1)">−</button>
+      <div class="duration-value" id="valWork">25 <span>min</span></div>
+      <button class="duration-btn" onclick="adjustDuration('work', 1)">+</button>
+    </div>
+  </div>
+  <div class="duration-row">
+    <div class="duration-label" id="labelShort">小休息</div>
+    <div class="duration-controls">
+      <button class="duration-btn" onclick="adjustDuration('shortBreak', -1)">−</button>
+      <div class="duration-value" id="valShort">5 <span>min</span></div>
+      <button class="duration-btn" onclick="adjustDuration('shortBreak', 1)">+</button>
+    </div>
+  </div>
+  <div class="duration-row">
+    <div class="duration-label" id="labelLong">大休息</div>
+    <div class="duration-controls">
+      <button class="duration-btn" onclick="adjustDuration('longBreak', -1)">−</button>
+      <div class="duration-value" id="valLong">15 <span>min</span></div>
+      <button class="duration-btn" onclick="adjustDuration('longBreak', 1)">+</button>
+    </div>
+  </div>
+</div>
+
+<div class="sound-panel">
+  <div class="sound-panel-title" id="soundTitle">環境音</div>
+  <div class="sound-list" id="soundList">
+    <div class="sound-item" data-sound="forest">
+      <button class="sound-toggle" data-sound="forest">🌲</button>
+      <div class="sound-info">
+        <div class="sound-name" data-i18n="forest">森林</div>
+        <div class="sound-name-en">Forest</div>
+      </div>
+      <input type="range" class="sound-volume" data-sound="forest" min="0" max="100" value="50">
+    </div>
+    <div class="sound-item" data-sound="cafe">
+      <button class="sound-toggle" data-sound="cafe">☕</button>
+      <div class="sound-info">
+        <div class="sound-name" data-i18n="cafe">咖啡廳</div>
+        <div class="sound-name-en">Cafe</div>
+      </div>
+      <input type="range" class="sound-volume" data-sound="cafe" min="0" max="100" value="50">
+    </div>
+    <div class="sound-item" data-sound="stream">
+      <button class="sound-toggle" data-sound="stream">🌊</button>
+      <div class="sound-info">
+        <div class="sound-name" data-i18n="stream">溪水</div>
+        <div class="sound-name-en">Stream</div>
+      </div>
+      <input type="range" class="sound-volume" data-sound="stream" min="0" max="100" value="50">
+    </div>
+    <div class="sound-item" data-sound="rain">
+      <button class="sound-toggle" data-sound="rain">🌧</button>
+      <div class="sound-info">
+        <div class="sound-name" data-i18n="rain">雨聲</div>
+        <div class="sound-name-en">Rain</div>
+      </div>
+      <input type="range" class="sound-volume" data-sound="rain" min="0" max="100" value="50">
+    </div>
+    <div class="sound-item" data-sound="fireplace">
+      <button class="sound-toggle" data-sound="fireplace">🔥</button>
+      <div class="sound-info">
+        <div class="sound-name" data-i18n="fireplace">壁爐</div>
+        <div class="sound-name-en">Fireplace</div>
+      </div>
+      <input type="range" class="sound-volume" data-sound="fireplace" min="0" max="100" value="50">
+    </div>
+  </div>
+</div>
+
+<div class="footer" id="footerText">深呼吸，專注當下</div>
+
+<script>
+// ─── i18n ───
+let lang = 'zh';
+
+const i18n = {
+  zh: {
+    title: '專注計時器',
+    work: '工作',
+    shortBreak: '小休息',
+    longBreak: '大休息',
+    start: '開始',
+    pause: '暫停',
+    resume: '繼續',
+    reset: '重設',
+    ready: '準備就緒',
+    focusing: '專注中…',
+    paused: '已暫停',
+    done: '辛苦了！',
+    breakTime: '休息一下！',
+    labelWork: '工作時間',
+    labelShort: '小休息',
+    labelLong: '大休息',
+    soundTitle: '環境音',
+    forest: '森林',
+    cafe: '咖啡廳',
+    stream: '溪水',
+    rain: '雨聲',
+    fireplace: '壁爐',
+    footer: '深呼吸，專注當下',
+    langBtn: 'EN',
+  },
+  en: {
+    title: 'Focus Timer',
+    work: 'Work',
+    shortBreak: 'Short Break',
+    longBreak: 'Long Break',
+    start: 'Start',
+    pause: 'Pause',
+    resume: 'Resume',
+    reset: 'Reset',
+    ready: 'Ready',
+    focusing: 'Focusing…',
+    paused: 'Paused',
+    done: 'Well done!',
+    breakTime: 'Break time!',
+    labelWork: 'Work',
+    labelShort: 'Short Break',
+    labelLong: 'Long Break',
+    soundTitle: 'Ambient Sounds',
+    forest: 'Forest',
+    cafe: 'Cafe',
+    stream: 'Stream',
+    rain: 'Rain',
+    fireplace: 'Fireplace',
+    footer: 'Breathe deep, stay focused',
+    langBtn: '中文',
+  }
+};
+
+function t(key) { return i18n[lang][key] || key; }
+
+function applyLang() {
+  document.getElementById('appTitle').textContent = t('title');
+  document.getElementById('tabWork').textContent = t('work');
+  document.getElementById('tabShort').textContent = t('shortBreak');
+  document.getElementById('tabLong').textContent = t('longBreak');
+  document.getElementById('btnReset').textContent = t('reset');
+  document.getElementById('labelWork').textContent = t('labelWork');
+  document.getElementById('labelShort').textContent = t('labelShort');
+  document.getElementById('labelLong').textContent = t('labelLong');
+  document.getElementById('soundTitle').textContent = t('soundTitle');
+  document.getElementById('footerText').textContent = t('footer');
+  document.getElementById('langBtn').textContent = t('langBtn');
+
+  // Sound names
+  document.querySelectorAll('.sound-name[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+
+  // Update start button text
+  if (isRunning) {
+    btnStart.textContent = t('pause');
+  } else if (remaining < durations[currentMode] * 60) {
+    btnStart.textContent = t('resume');
+  } else {
+    btnStart.textContent = t('start');
+  }
+
+  // Update timer label
+  if (isRunning) {
+    timerLabel.textContent = currentMode === 'work' ? t('focusing') : t('breakTime');
+  } else if (remaining <= 0) {
+    timerLabel.textContent = t('done');
+  } else if (remaining < durations[currentMode] * 60) {
+    timerLabel.textContent = t('paused');
+  } else {
+    timerLabel.textContent = t('ready');
+  }
+}
+
+function toggleLang() {
+  lang = lang === 'zh' ? 'en' : 'zh';
+  applyLang();
+}
+
+// ─── Timer State ───
+const durations = { work: 25, shortBreak: 5, longBreak: 15 };
+let currentMode = 'work';
+let remaining = durations.work * 60;
+let timerInterval = null;
+let isRunning = false;
+
+const circumference = 2 * Math.PI * 126;
+const progress = document.querySelector('.timer-progress');
+const timeDisplay = document.getElementById('timeDisplay');
+const timerLabel = document.getElementById('timerLabel');
+const btnStart = document.getElementById('btnStart');
+const btnReset = document.getElementById('btnReset');
+
+progress.style.strokeDasharray = circumference;
+progress.style.strokeDashoffset = '0';
+
+function getDuration() { return durations[currentMode] * 60; }
+
+function formatTime(s) {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+}
+
+function updateDisplay() {
+  timeDisplay.textContent = formatTime(remaining);
+  const fraction = 1 - remaining / getDuration();
+  progress.style.strokeDashoffset = fraction * circumference;
+}
+
+function startTimer() {
+  if (remaining <= 0) return;
+  isRunning = true;
+  btnStart.textContent = t('pause');
+  btnStart.classList.add('active');
+  timerLabel.textContent = currentMode === 'work' ? t('focusing') : t('breakTime');
+
+  timerInterval = setInterval(() => {
+    remaining--;
+    updateDisplay();
+    if (remaining <= 0) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      isRunning = false;
+      btnStart.textContent = t('start');
+      btnStart.classList.remove('active');
+      timerLabel.textContent = t('done');
+      playChime();
+    }
+  }, 1000);
+}
+
+function pauseTimer() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+  isRunning = false;
+  btnStart.textContent = t('resume');
+  btnStart.classList.remove('active');
+  timerLabel.textContent = t('paused');
+}
+
+function resetTimer() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+  isRunning = false;
+  remaining = getDuration();
+  updateDisplay();
+  btnStart.textContent = t('start');
+  btnStart.classList.remove('active');
+  timerLabel.textContent = t('ready');
+}
+
+btnStart.addEventListener('click', () => {
+  if (isRunning) pauseTimer();
+  else startTimer();
+});
+
+btnReset.addEventListener('click', resetTimer);
+
+// ─── Mode Tabs ───
+document.querySelectorAll('.mode-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    if (isRunning) return; // don't switch while running
+    document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentMode = tab.dataset.mode;
+
+    // Update progress ring color
+    if (currentMode === 'work') {
+      progress.style.stroke = 'var(--brown)';
+    } else {
+      progress.style.stroke = 'var(--green)';
+    }
+
+    resetTimer();
+  });
+});
+
+// ─── Duration Controls (1 min increments) ───
+function adjustDuration(mode, delta) {
+  if (isRunning) return;
+  durations[mode] = Math.max(1, Math.min(120, durations[mode] + delta));
+  const valId = { work: 'valWork', shortBreak: 'valShort', longBreak: 'valLong' };
+  document.getElementById(valId[mode]).innerHTML = `${durations[mode]} <span>min</span>`;
+  if (mode === currentMode) {
+    remaining = durations[mode] * 60;
+    updateDisplay();
+  }
+}
+
+// ─── Web Audio ───
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function createNoiseBuffer(ctx, type, seconds = 4) {
+  const sr = ctx.sampleRate;
+  const len = sr * seconds;
+  const buf = ctx.createBuffer(1, len, sr);
+  const data = buf.getChannelData(0);
+
+  if (type === 'white') {
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  } else if (type === 'pink') {
+    let b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0;
+    for (let i = 0; i < len; i++) {
+      const w = Math.random() * 2 - 1;
+      b0 = 0.99886 * b0 + w * 0.0555179;
+      b1 = 0.99332 * b1 + w * 0.0750759;
+      b2 = 0.96900 * b2 + w * 0.1538520;
+      b3 = 0.86650 * b3 + w * 0.3104856;
+      b4 = 0.55000 * b4 + w * 0.5329522;
+      b5 = -0.7616 * b5 - w * 0.0168980;
+      data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11;
+      b6 = w * 0.115926;
+    }
+  } else if (type === 'brown') {
+    let last = 0;
+    for (let i = 0; i < len; i++) {
+      const w = Math.random() * 2 - 1;
+      last = (last + 0.02 * w) / 1.02;
+      data[i] = last * 3.5;
+    }
+  }
+  return buf;
+}
+
+function createLoopingNoise(ctx, type, gain) {
+  const buf = createNoiseBuffer(ctx, type);
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.loop = true;
+  const g = ctx.createGain();
+  g.gain.value = gain;
+  src.connect(g);
+  return { source: src, gain: g };
+}
+
+// ─── Sound Engines ───
+const activeSounds = {};
+
+// Helper: create sound from audio file (avoids CORS issues with file://)
+function createAudioSound(filename, defaultVol) {
+  const audio = new Audio(filename);
+  audio.loop = true;
+  audio.volume = defaultVol;
+  audio.play().catch(() => {});
+
+  const fakeGain = {
+    gain: {
+      _val: defaultVol,
+      get value() { return this._val; },
+      set value(v) { this._val = v; audio.volume = Math.min(1, Math.max(0, v)); }
+    }
+  };
+
+  return {
+    nodes: [], intervals: [], masterGain: fakeGain,
+    stop() {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+  };
+}
+
+function createForest()    { return createAudioSound('forest-loop.mp3', 0.5); }
+function createCafe()      { return createAudioSound('cafe-loop.mp3', 0.5); }
+function createStream()    { return createAudioSound('stream-loop.mp3', 0.5); }
+function createRain()      { return createAudioSound('rain-loop.mp3', 0.5); }
+function createFireplace() { return createAudioSound('fireplace-loop.mp3', 0.5); }
+
+const soundFactory = { forest: createForest, cafe: createCafe, stream: createStream, rain: createRain, fireplace: createFireplace };
+
+// ─── Sound Controls ───
+document.querySelectorAll('.sound-toggle').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const name = btn.dataset.sound;
+    const slider = document.querySelector(`.sound-volume[data-sound="${name}"]`);
+    if (activeSounds[name]) {
+      activeSounds[name].stop();
+      delete activeSounds[name];
+      btn.classList.remove('active');
+      slider.classList.remove('active');
+    } else {
+      const sound = soundFactory[name]();
+      const vol = slider.value / 100;
+      sound.masterGain.gain.value = vol;
+      activeSounds[name] = sound;
+      btn.classList.add('active');
+      slider.classList.add('active');
+    }
+  });
+});
+
+document.querySelectorAll('.sound-volume').forEach(slider => {
+  slider.addEventListener('input', () => {
+    const name = slider.dataset.sound;
+    if (activeSounds[name]) {
+      activeSounds[name].masterGain.gain.value = slider.value / 100;
+    }
+  });
+});
+
+// ─── Completion Chime ───
+function playChime() {
+  const ctx = getAudioCtx();
+  const notes = [523.25, 659.25, 783.99];
+  notes.forEach((freq, i) => {
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    const t = ctx.currentTime + i * 0.25;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.15, t + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
+    osc.connect(g).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 1.3);
+  });
+}
+
+// Init
+updateDisplay();
+</script>
+</body>
+</html>
